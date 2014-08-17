@@ -44,8 +44,8 @@ public:
     int DRDY, CS, RST; 		// pin numbers for DataRead ChipSelect Reset pins 
     int DIVIDER;		// select SPI SCK frequency
     int stat;			// used to hold the status register
-    byte regData [24];	        // array is used to mirror register data
-    byte rawChannelData[8*3];   // place to store the raw bytes received from the ADS1299
+    byte regData[24];	        // array is used to mirror register data
+    byte rawChannelData[24];   // place to store the raw bytes received from the ADS1299
     long channelData [9];	// array used when reading channel data
     boolean verbosity;		// turn on/off Serial feedback
 	
