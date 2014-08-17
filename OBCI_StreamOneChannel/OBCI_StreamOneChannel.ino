@@ -41,84 +41,84 @@ int outputType;
 //------------------------------------------------------------------------------
 //  << LIS3DH Accelerometer Business >>
 //  LIS3DH_SS on pin 5 defined in OpenBCI library
-int axisData[3];  // holds X, Y, Z accelerometer data
-boolean xyzAvailable = false;
+//int axisData[3];  // holds X, Y, Z accelerometer data
+//boolean xyzAvailable = false;
 
 // use cout to save memory use pstr to store strings in flash to save RAM
 ArduinoOutStream cout(Serial); 
 
+void startData(void) {
+  //cout << pstr("Starting OpenBCI data log to ") << currentFileName << pstr("\n"); 
+  SPI.setDataMode(SPI_MODE1);
+  OBCI.start_ads();
+  is_running = true;
+}
+
+void stopData(void) {
+  is_running = false;
+  SPI.setDataMode(SPI_MODE1);
+  OBCI.stop_ads();
+  SPI.setDataMode(SPI_MODE0);
+  OBCI.disable_accel(); 
+  delay(1000);
+}
 
 void setup(void) {
 
   Serial.begin(115200);
 // pinMode(LIS3DH_SS,OUTPUT); digitalWrite(LIS3DH_SS,HIGH);   // de-select the LIS3DH
-//  pinMode(SD_SS,OUTPUT); digitalWrite(SD_SS,HIGH);           // de-select the SD card
+  pinMode(SD_SS,OUTPUT); digitalWrite(SD_SS,HIGH);           // de-select the SD card
 //  pinMode(ADS_SS,OUTPUT); digitalWrite(ADS_SS,HIGH);         // de-select the ADS
 //  pinMode(DAISY_SS,OUTPUT); digitalWrite(DAISY_SS,HIGH);         // de-select the Daisy Module
+
   
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV2);
-    
   delay(3000); //was 4000
- 
-  OBCI.initialize_ads();
   cout << ("OBCI_StreamOneChannel\n");  delay(1000);
-
-//  SPI.setDataMode(SPI_MODE1);
-  for (int chan=1; chan <= nActiveChannels; chan++) {
-    OBCI.activateChannel(chan, gainCode, inputType);
-  }
-  
+ 
+  //initialize the ADS Hardware
+  SPI.setDataMode(SPI_MODE1);
+  OBCI.initialize_ads();
+  for (int chan=1; chan <= nActiveChannels; chan++) OBCI.activateChannel(chan, gainCode, inputType);
   delay(1000);
+
 }
 
 
 void loop() {
-  while (Serial.read() >= 0) {}  // clear out the serial buffer
+    
+  if (!is_running) {
+    //wait to receve command from user  
+    while (Serial.read() >= 0) {}  // clear out the serial buffer
+    cout << pstr("Waiting for character\n"); delay(1000);// prompt user to begin test
+    while (Serial.read() <= 0) {}  // wait here for serial input
+    
+    //character received, so start running
+    cout << pstr("Starting\n");  delay(1000);
+    startData();
+    sampleCounter = 0;
+  }
+
   
-  cout << pstr("Type any character to start\n"); delay(1000);// prompt user to begin test
-  while (Serial.read() <= 0) {}  // wait here for serial input
-  cout << pstr("Starting\n");  delay(1000);
-  sampleCounter = 0;
-
-  digitalWrite(SD_SS,HIGH);  // de-select SD card
-
-//    cout << pstr("Enable Accelerometer\n");
-//    OBCI.enable_accel();
-    
-    //cout << pstr("Starting OpenBCI data log to ") << currentFileName << pstr("\n"); 
+  while(is_running){
+      
+    //wait until data is available
     SPI.setDataMode(SPI_MODE1);
-    OBCI.start_ads();
+    while(!(OBCI.isDataAvailable())){   // watch the DRDY pin
+      delayMicroseconds(10);
+    }
     
-    is_running = true;
+    //get the data
+    SPI.setDataMode(SPI_MODE1);
+    OBCI.updateChannelData();
+    sampleCounter++;
     
-    while(is_running){
-      while(!(OBCI.isDataAvailable())){   // watch the DRDY pin
-        delayMicroseconds(10);
-      }
-
-      SPI.setDataMode(SPI_MODE1);
-      OBCI.updateChannelData();
-      sampleCounter++;
-      
-      if(OBCI.LIS3DH_DataReady()){
-        SPI.setDataMode(SPI_MODE3);
-        axisData[0] = OBCI.getX();
-        axisData[1] = OBCI.getY();
-        axisData[2] = OBCI.getZ();
-        xyzAvailable = true;
-      }
-      SPI.setDataMode(SPI_MODE0);
-      
-      if (sampleCounter >= 256) {
-        cout << pstr("Stopping\n");
-        is_running = false;
-        SPI.setDataMode(SPI_MODE1);
-        OBCI.stop_ads();
-        SPI.setDataMode(SPI_MODE0);
-        OBCI.disable_accel(); 
-        delay(1000);
-      } 
+    //is it time to stop?
+    if (sampleCounter >= 256) {
+      cout << pstr("Stopping\n");
+      stopData();
+    } 
   }
 }
 
