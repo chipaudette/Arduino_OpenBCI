@@ -20,10 +20,31 @@
 #include <SdFatUtil.h>  // from https://github.com/greiman/SdFat
 #include "OpenBCI_04.h"  
 
-int byteCounter = 0;     // used to hold position in cache
-boolean logging = false;
-//unsigned int timeBetweenFiles;
-//boolean betweenFiles = false;
+
+//-----------------------------------------------------------------
+// Data packet info
+const int dataLength = 24;  // size of 
+  // load dummyData with ascii if you want to see it on the serial monitor
+ char dummyData[dataLength] = {
+   '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F',
+   '0','1','2','3','4','5','6','\n'
+ };
+  // load byte values for testing OpenBCI data conversion
+//char dummyData[dataLength] = {
+//  0xFF,0xFF,0x00,  // -256
+//  0x00,0x00,0xFF,  // 255
+//  0xFF,0xFF,0x00,
+//  0x00,0x00,0xFF,
+//  0xFF,0xFF,0x00,
+//  0x00,0x00,0xFF,
+//  0xFF,0xFF,0x00,
+//  0x00,0x00,0xFF
+//};
+
+char serialCheckSum;            // holds the byte count for streaming 
+int sampleCounter = 0;         // sample counter
+word packetCounter = 0;         // used to limit the number of packets during tests
+boolean streamingData = false;  // streamingData flag is set when 'b' is received    
 
 //------------------------------------------------------------------------------
 //  << OpenBCI BUSINESS >>
@@ -32,35 +53,30 @@ OpenBCI OBCI; //Uses SPI bus and pins to say data is ready.  Uses Pins 13,12,11,
 int nActiveChannels = 1;   //how many active channels would I like?
 byte gainCode = ADS_GAIN24;   //how much gain do I want
 byte inputType = ADSINPUT_SHORTED;   //here's the normal way to setup the channels
-unsigned int sampleCounter = 0;      // used to time the tesing loop
-boolean is_running = false;    // this flag is set in serialEvent on reciept of prompt
+boolean is_running = false;    // is the ADS1299 running?
 boolean startBecauseOfSerial = false;
 char leadingChar;
 int outputType;
 
-//------------------------------------------------------------------------------
-//  << LIS3DH Accelerometer Business >>
-//  LIS3DH_SS on pin 5 defined in OpenBCI library
-//int axisData[3];  // holds X, Y, Z accelerometer data
-//boolean xyzAvailable = false;
 
 // use cout to save memory use pstr to store strings in flash to save RAM
 ArduinoOutStream cout(Serial); 
 
 void startData(void) {
   //cout << pstr("Starting OpenBCI data log to ") << currentFileName << pstr("\n"); 
-  SPI.setDataMode(SPI_MODE1);
+  //SPI.setDataMode(SPI_MODE1);
   OBCI.start_ads();
   is_running = true;
 }
 
 void stopData(void) {
   is_running = false;
-  SPI.setDataMode(SPI_MODE1);
+  //SPI.setDataMode(SPI_MODE1);
   OBCI.stop_ads();
-  SPI.setDataMode(SPI_MODE0);
-  OBCI.disable_accel(); 
-  delay(1000);
+  //SPI.setDataMode(SPI_MODE0);
+  //OBCI.disable_accel(); 
+  delay(100);
+  
 }
 
 void setup(void) {
@@ -82,43 +98,71 @@ void setup(void) {
   OBCI.initialize_ads();
   for (int chan=1; chan <= nActiveChannels; chan++) OBCI.activateChannel(chan, gainCode, inputType);
   delay(1000);
+  
+  //send instructions to user
+  cout << pstr("'b' to start\n"); delay(500);// prompt user to begin test
+  cout << pstr("'s' to stop\n"); delay(500);// prompt user to begin test
+  //benchWriteTime = 0;           // used to benchmark transmission time
+  serialCheckSum = dataLength + 1;  // serialCheckSum includes sampleCounter
+  sampleCounter = 0;
 
 }
 
 
 void loop() {
-    
-  if (!is_running) {
-    //wait to receve command from user  
-    while (Serial.read() >= 0) {}  // clear out the serial buffer
-    cout << pstr("Waiting for character\n"); delay(1000);// prompt user to begin test
-    while (Serial.read() <= 0) {}  // wait here for serial input
-    
-    //character received, so start running
-    cout << pstr("Starting\n");  delay(1000);
-    startData();
-    sampleCounter = 0;
-  }
-
-  
-  while(is_running){
+   
+  if (is_running){
       
     //wait until data is available
-    SPI.setDataMode(SPI_MODE1);
+    //SPI.setDataMode(SPI_MODE1);
     while(!(OBCI.isDataAvailable())){   // watch the DRDY pin
       delayMicroseconds(10);
     }
     
     //get the data
-    SPI.setDataMode(SPI_MODE1);
+    //SPI.setDataMode(SPI_MODE1);
     OBCI.updateChannelData();
     sampleCounter++;
+    Serial.println(sampleCounter);delay(400);
     
     //is it time to stop?
-    if (sampleCounter >= 256) {
-      cout << pstr("Stopping\n");
+    if (sampleCounter >= 255) {
+      cout << pstr("Stopping\n");delay(1000);
       stopData();
     } 
   }
 }
 
+void serialEvent(){ //done at end of every loop(), when serial data has been detected
+  
+  while (Serial.available()) { //loop here until the receive buffer is empty!
+    char token = Serial.read();
+    //Serial.print("got ");  Serial.write(token);  Serial.print('\n'); delay(400);
+       
+    switch (token) {
+      case 'b':
+        cout << pstr("Starting\n");delay(1000);
+        streamingData = true;
+        startData();
+        //Serial.print('B'); delay(20);        // give Device time to catch up
+        break;
+        
+      case 's':
+        if(streamingData){Serial.write(0x01);} // send checkSum for the command to follow
+        streamingData = false;
+        stopData();
+        cout << pstr("Stopping\n");delay(1000);
+        //Serial.print('S'); delay(20);        // give Device time to catch up
+        break;
+        
+      default:
+        break;
+     }
+     if(!streamingData){  // send checkSum for the verbose to follow
+       Serial.print("got the ");
+       Serial.write(token);
+       Serial.print('\n');
+     }
+     delay(20);
+  }
+}
