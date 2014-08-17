@@ -109,6 +109,7 @@ void setup(void) {
 }
 
 
+
 void loop() {
    
   if (is_running){
@@ -122,12 +123,27 @@ void loop() {
     //get the data
     //SPI.setDataMode(SPI_MODE1);
     OBCI.updateChannelData();
-    sampleCounter++;
-    Serial.println(sampleCounter);delay(400);
+    sampleCounter++;  //count how many samples we've taken
+
+    if(streamingData){              // receive 'b' on serial to set this
+      //benchWriteTime = micros();                 // BENCHMARK SAMPLE WRITE TIME
+      Serial.write(serialCheckSum);              // send the number of bytes to follow
+      Serial.write(packetCounter);         // send the sampleCounter
+      
+      //write OpenBCI's raw bytes
+      for (int i=0; i<dataLength; i++) {
+        Serial.write(OBCI.ads.rawChannelData[i]);  // send a data sample
+      }
+      packetCounter++;  // count the number of times we send a sample   
+      if (packetCounter > 255) packetCounter = 0; //constrain
+      delay(100);
+    }
     
     //is it time to stop?
-    if (sampleCounter >= 255) {
-      cout << pstr("Stopping\n");delay(1000);
+    if (sampleCounter >= 30) {
+      Serial.write(0x01);
+      streamingData=false;
+      cout << pstr("\nStopping\n");delay(1000);
       stopData();
     } 
   }
@@ -141,8 +157,9 @@ void serialEvent(){ //done at end of every loop(), when serial data has been det
        
     switch (token) {
       case 'b':
-        cout << pstr("Starting\n");delay(1000);
+        cout << pstr("\nStarting\n");delay(1000);
         streamingData = true;
+        sampleCounter = 0;
         startData();
         //Serial.print('B'); delay(20);        // give Device time to catch up
         break;
@@ -151,7 +168,7 @@ void serialEvent(){ //done at end of every loop(), when serial data has been det
         if(streamingData){Serial.write(0x01);} // send checkSum for the command to follow
         streamingData = false;
         stopData();
-        cout << pstr("Stopping\n");delay(1000);
+        cout << pstr("\nStopping\n");delay(1000);
         //Serial.print('S'); delay(20);        // give Device time to catch up
         break;
         

@@ -188,6 +188,7 @@ void ADS1299::updateChannelData(){
         for(int i = 0; i<8; i++){
 	  for(int j=0; j<3; j++){		//  read 24 bits of channel data in 8 3 byte chunks
 	    inByte = xfer(0x00);
+            rawChannelData[i*3+j] = inByte;
 	    channelData[i] = (channelData[i]<<8) | inByte;
 	  }
 	}
