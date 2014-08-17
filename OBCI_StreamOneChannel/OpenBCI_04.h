@@ -38,6 +38,7 @@ class OpenBCI {
     //void writeChannelDataAsOpenEEG_P2(long int sampleNumber);
     //void setSRB1(boolean desired_state);
     void getADS_ID(void);
+   
     
     //  ACCELEROMETER FUNCIONS
     void initialize_accel(void);

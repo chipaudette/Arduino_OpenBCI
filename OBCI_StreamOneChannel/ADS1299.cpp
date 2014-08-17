@@ -683,3 +683,5 @@ void ADS1299::csHigh(void)
 	digitalWrite(CS, HIGH);
 	SPI.setDataMode(SPI_MODE0);
 }
+
+

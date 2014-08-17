@@ -67,6 +67,7 @@ public:
     void printAllRegisters(void);
     void setSRB1(boolean desired_state);
     void printDeviceID(void);
+
 	
 private:
     byte old_SPCR;
