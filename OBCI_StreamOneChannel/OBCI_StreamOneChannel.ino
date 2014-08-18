@@ -33,11 +33,11 @@ boolean streamingData = false;  // streamingData flag is set when 'b' is receive
 //  << OpenBCI BUSINESS >>
 OpenBCI OBCI; //Uses SPI bus and pins to say data is ready.  Uses Pins 13,12,11,10,9,8,4
 //#define MAX_N_CHANNELS (8)  //must be less than or equal to length of channelData in ADS1299 object!!
-int nActiveChannels = 1;   //how many active channels would I like?
+int nActiveChannels = 8;   //how many active channels would I like?
 byte gainCode = ADS_GAIN24;   //how much gain do I want
-byte inputType = ADSINPUT_NORMAL;   //here's the normal way to setup the channels
+//byte inputType = ADSINPUT_NORMAL;   //here's the normal way to setup the channels
 //byte inputType = ADSINPUT_SHORTED;   //here's the normal way to setup the channels
-//byte inputType = ADSINPUT_TESTSIG;   //here's the normal way to setup the channels
+byte inputType = ADSINPUT_TESTSIG;   //here's the normal way to setup the channels
 boolean is_running = false;    // is the ADS1299 running?
 boolean startBecauseOfSerial = false;
 char leadingChar;
@@ -143,12 +143,12 @@ void loop() {
     }
 
   //is it time to stop?
-  if (sampleCounter >= 2000) {
-      stopRFDuinoStreaming();
-      //cout << pstr("\nStopping\n");
-      delay(1000);
-      stopData(); //stop ADS1299
-    }
+//  if (sampleCounter >= 120*250) {  //at 250 Hz
+//      stopRFDuinoStreaming();
+//      //cout << pstr("\nStopping\n");
+//      delay(1000);
+//      stopData(); //stop ADS1299
+//    }
   }
 }
 
